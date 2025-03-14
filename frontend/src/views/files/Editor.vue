@@ -1,5 +1,5 @@
 <template>
-  <div id="editor-container" @wheel.prevent.stop>
+  <div id="editor-container" >
     <header-bar>
       <action icon="close" :label="t('buttons.close')" @action="close()" />
       <title>{{ fileStore.req?.name ?? "" }}</title>
@@ -22,19 +22,23 @@
 
     <Breadcrumbs base="/files" noLink />
 
-    <!-- preview container -->
-    <div
-      v-show="isPreview && isMarkdownFile"
-      id="preview-container"
-      class="md_preview"
-      v-html="previewContent"
-    ></div>
-
-    <form v-show="!isPreview || !isMarkdownFile" id="editor"></form>
+    <div class='scrollable'>
+    <JsonViewer 
+    :value="fileContent2" 
+    :expand-depth="Infinity"
+    copyable
+    boxed 
+    expanded
+    :show-array-index="false"
+    />
+    </div>
+    
   </div>
 </template>
 
 <script setup lang="ts">
+import JsonViewer from "vue-json-viewer";
+import 'vue-json-viewer/style.css'
 import { files as api } from "@/api";
 import buttons from "@/utils/buttons";
 import url from "@/utils/url";
@@ -73,9 +77,20 @@ const isMarkdownFile =
   fileStore.req?.name.endsWith(".md") ||
   fileStore.req?.name.endsWith(".markdown");
 
+const fileContent2 = ref();
+
+watchEffect(() => {
+  try {
+    fileContent2.value = JSON.parse(fileStore.req?.content || "{}");
+  } catch {
+    fileContent2.value = fileStore.req?.content || "";
+  }
+});
+
+
 onMounted(() => {
   window.addEventListener("keydown", keyEvent);
-  window.addEventListener("wheel", handleScroll);
+  
 
   const fileContent = fileStore.req?.content || "";
 
@@ -90,11 +105,6 @@ onMounted(() => {
       }
 
       const previewContainer = document.getElementById("preview-container");
-      if (previewContainer) {
-        previewContainer.addEventListener("wheel", handleScroll, {
-          capture: true,
-        });
-      }
     }
   });
 
@@ -124,7 +134,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", keyEvent);
-  window.removeEventListener("wheel", handleScroll);
+  
   editor.value?.destroy();
 });
 
@@ -145,12 +155,6 @@ const keyEvent = (event: KeyboardEvent) => {
   save();
 };
 
-const handleScroll = (event: WheelEvent) => {
-  const editorContainer = document.getElementById("preview-container");
-  if (editorContainer) {
-    editorContainer.scrollTop += event.deltaY;
-  }
-};
 
 const save = async () => {
   const button = "save";
@@ -166,10 +170,11 @@ const save = async () => {
   }
 };
 const close = () => {
-  if (!editor.value?.session.getUndoManager().isClean()) {
-    layoutStore.showHover("discardEditorChanges");
-    return;
-  }
+
+//  if (!editor.value?.session.getUndoManager().isClean()) {
+//    layoutStore.showHover("discardEditorChanges");
+//    return;
+//  }
 
   fileStore.updateRequest(null);
 
@@ -181,3 +186,14 @@ const preview = () => {
   isPreview.value = !isPreview.value;
 };
 </script>
+
+<style>
+/* Override only the string color in JsonViewer */
+.jv-light .jv-string {
+  color: #14588F !important; /* Your custom color */
+}
+.scrollable {
+   overflow-y: scroll;
+}
+
+</style>
